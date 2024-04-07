@@ -23,6 +23,24 @@ disable:
 curl -sfL https://get.k3s.io | sh -s - --config=/etc/rancher/k3s/config.yaml
 ```
 
+### Install `cilium`
+
+`cilium`:
+```
+helm upgrade \
+  --install \
+  --create-namespace \
+  --namespace cilium \
+  --debug \
+  --set kubeProxyReplacement=true \
+--set k8sServiceHost=<nuc IP> \
+  --set k8sServicePort=6443 \
+  --set operator.replicas=1 \
+  --version 1.15.3 \
+  cilium \
+  cilium/cilium
+```
+
 ### To manage the `k3s` cluster with `kubectl` externally you can do the following:
 _This assumes that you have a `tls` directory locally._
 1. Locally: `openssl genrsa -out tls/nuc-admin.key 2048`
@@ -66,23 +84,5 @@ kubectl config set-credentials nuc-admin --client-key tls/nuc-admin.key --client
 kubectl config set-cluster <CLUSTER NAME> --server https://<NUC IP>:6443 --insecure-skip-tls-verify=true
 kubectl config set-context nuc-admin --user=nuc-admin --cluster=<CLUSTER NAME>
 kubectl config use-context nuc-admin
-```
-
-## Installing Kubernetes components
-
-`cilium`:
-```
-helm upgrade \
-  --install \
-  --create-namespace \
-  --namespace cilium \
-  --debug \
-  --set kubeProxyReplacement=true \
---set k8sServiceHost=<nuc IP> \
-  --set k8sServicePort=6443 \
-  --set operator.replicas=1 \
-  --version 1.15.3 \
-  cilium \
-  cilium/cilium
 ```
 
