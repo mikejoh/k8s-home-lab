@@ -23,7 +23,7 @@ disable:
 curl -sfL https://get.k3s.io | sh -s - --config=/etc/rancher/k3s/config.yaml
 ```
 
-To manage the `k3s` cluster externally you can do the following:
+### To manage the `k3s` cluster with `kubectl` externally you can do the following:
 _This assumes that you have a `tls` directory locally._
 1. Locally: `openssl genrsa -out tls/nuc-admin.key 2048`
 2. Locally: `openssl req -new -key nuc-admin.key -out tls/nuc-admin.csr -subj /O=nuc-admin/CN=nuc-admin`
