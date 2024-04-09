@@ -57,7 +57,7 @@ openssl genrsa -out nuc-admin.key 2048
 openssl req -new -key nuc-admin.key -out nuc-admin.csr -subj /O=nuc-admin/CN=nuc-admin
 cat nuc-admin.csr | base64 -w0 | wl-copy -p
 ```
-2. Run externally (e.g. on the NUC), create the following manifest, i gave it the name `nuc-admin.yaml`. _Note that you can change `expirationSeconds` for longer validity, if you remove that completely you'll get the default 1 year validity from the built-in signer_:
+2. Run externally (e.g. on the NUC), create the following manifest, i gave it the name `nuc-admin.yaml`. _Note that you can change `expirationSeconds` for longer validity, if you remove that completely you'll get the default 1 year validity from [the built-in signer](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#kubernetes-signers)_:
 ```
 apiVersion: certificates.k8s.io/v1
 kind: CertificateSigningRequest
