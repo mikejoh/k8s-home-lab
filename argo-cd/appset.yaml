@@ -4,36 +4,43 @@ metadata:
   name: nuc01-apps
   namespace: argocd
 spec:
+  goTemplate: true
   applyNestedSelectors: true
   generators:
-    - git:
-        files:
-          - path: apps/apps.yaml
-        repoURL: https://github.com/mikejoh/k8s-applications.git
-        revision: main
-    - list:
-        elements:
-          - "{{ .apps | toJson }}"
-  goTemplate: true
+    - matrix:
+        generators:
+          - git:
+              files:
+                - path: apps/apps.yaml
+              repoURL: https://github.com/mikejoh/k8s-applications.git
+              revision: main
+          - list:
+              elements: []
+              elementsYaml: "{{ .apps | toJson }}"
+    - clusters: {}
   syncPolicy:
     preserveResourcesOnDeletion: true
   template:
     metadata:
-      name: "{{ .name }}"
+      name: "{{ .app }}"
     spec:
       destination:
         namespace: "{{ if .namespace }}{{ .namespace }}{{ else }}{{ .app }}{{ end }}"
-        server: "{{ .server }}"
+        server: https://kubernetes.default.svc
       project: default
       source:
         helm:
           ignoreMissingValueFiles: true
-          skipCrds: true
           valueFiles:
             - values.yaml
-        path: apps/charts/{{ .name }}
+        path: apps/charts/{{ .app }}
         repoURL: https://github.com/mikejoh/k8s-applications.git
         targetRevision: "{{ .revision }}"
+      syncPolicy:
+        syncOptions:
+          - FailOnSharedResource=true
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
   templatePatch: |
     spec:
       syncPolicy:
