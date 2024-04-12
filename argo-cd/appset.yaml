@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: nuc01-apps
+  namespace: argocd
+spec:
+  applyNestedSelectors: true
+  generators:
+    - git:
+        files:
+          - path: apps/apps.yaml
+        repoURL: https://github.com/mikejoh/k8s-applications.git
+        revision: main
+    - list:
+        elements:
+          - "{{ .apps | toJson }}"
+  goTemplate: true
+  syncPolicy:
+    preserveResourcesOnDeletion: true
+  template:
+    metadata:
+      name: "{{ .name }}"
+    spec:
+      destination:
+        namespace: "{{ if .namespace }}{{ .namespace }}{{ else }}{{ .app }}{{ end }}"
+        server: "{{ .server }}"
+      project: default
+      source:
+        helm:
+          ignoreMissingValueFiles: true
+          skipCrds: true
+          valueFiles:
+            - values.yaml
+        path: apps/charts/{{ .name }}
+        repoURL: https://github.com/mikejoh/k8s-applications.git
+        targetRevision: "{{ .revision }}"
+  templatePatch: |
+    spec:
+      syncPolicy:
+        syncOptions:
+          - FailOnSharedResource=true
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+        {{- range $opt := .syncOptions }}
+          - {{ $opt }}
+        {{- end }}
