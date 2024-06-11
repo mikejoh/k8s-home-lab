@@ -36,11 +36,6 @@ spec:
         path: apps/charts/{{ .app }}
         repoURL: https://github.com/mikejoh/k8s-applications.git
         targetRevision: "{{ .revision }}"
-      syncPolicy:
-        syncOptions:
-          - FailOnSharedResource=true
-          - CreateNamespace=true
-          - ApplyOutOfSyncOnly=true
   templatePatch: |
     spec:
       syncPolicy:
