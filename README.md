@@ -107,7 +107,7 @@ kubectl config use-context nuc-admin
 ```
 mkdir argo-cd
 helm repo add argo https://argoproj.github.io/argo-helm
-helm show values --version 6.7.3 argo/argo-cd > argo-cd/6.7.3-values.yaml
+helm show values --version 7.3.2 argo/argo-cd > argo-cd/7.3.2-values.yaml
 ```
 2. Make relevant changes to the values file.
 3. Install:
@@ -116,8 +116,8 @@ helm upgrade \
   --install \
   --create-namespace \
   --namespace argocd \
-  --values argo-cd/6.7.3-values.yaml \
-  --version 6.7.3 \
+  --values argo-cd/7.3.2-values.yaml \
+  --version 7.3.2 \
   --debug \
   argocd \
   argo/argo-cd
