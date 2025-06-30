@@ -156,3 +156,16 @@ I'll change the way i expose services and applications in the cluster later on.
 ```bash
 kubectl apply -f argo-cd/appset.yaml
 ```
+
+### Install the `system-ugprade-controller`
+
+```bash
+export SUC_VERSION="v0.14.2"
+kubectl apply --force-conflicts --server-side -f https://github.com/rancher/system-upgrade-controller/releases/download/${SUC_VERSION}/crd.yaml
+kubectl apply -f https://github.com/rancher/system-upgrade-controller/releases/download/${SUC_VERSION}/system-upgrade-controller.yaml
+```
+
+Upgrade `k3s` using the `system-upgrade-controller`:
+```bash
+kubectl apply -f ./k3s/server-plan.yaml
+```
