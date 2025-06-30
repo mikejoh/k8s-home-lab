@@ -3,7 +3,7 @@
 ## Overview
 
 * One Intel NUC
-* k3s `v1.28.8+k3s1`
+* k3s `v1.31.9+k3s1`
 * Cilium as CNI
 
 ## Packages and tools on the NUC
@@ -166,6 +166,12 @@ kubectl apply -f https://github.com/rancher/system-upgrade-controller/releases/d
 ```
 
 Upgrade `k3s` using the `system-upgrade-controller`:
+
+1. Change the `k3s` version in the `Plan` manifest.
+
+2. Apply the `Plan` manifest:
+
 ```bash
 kubectl apply -f ./k3s/server-plan.yaml
 ```
+
