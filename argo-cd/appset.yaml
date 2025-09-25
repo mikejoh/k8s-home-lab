@@ -20,11 +20,11 @@ spec:
     - clusters: {}
   syncPolicy:
     preserveResourcesOnDeletion: true
-  ignoreApplicationDifferences:
-    - jsonPointers:
-      - /spec/source/targetRevision
-    - jqPathExpressions:
-      - .spec.sources[] | .targetRevision
+#  ignoreApplicationDifferences:
+#    - jsonPointers:
+#      - /spec/source/targetRevision
+#    - jqPathExpressions:
+#      - .spec.sources[] | .targetRevision
   template:
     metadata:
       name: "{{ .app }}"
@@ -44,6 +44,11 @@ spec:
   templatePatch: |
     spec:
       syncPolicy:
+        {{- if .autoSync }}
+        automated:
+          enabled: true
+          prune: true
+        {{- end }}
         syncOptions:
           - FailOnSharedResource=true
           - CreateNamespace=true
