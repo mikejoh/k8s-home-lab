@@ -34,7 +34,7 @@ disable:
 curl -sfL https://get.k3s.io | sh -s - --config=/etc/rancher/k3s/config.yaml
 ```
 
-### Install `cilium`
+## Install `cilium`
 
 `cilium`:
 
@@ -51,7 +51,7 @@ helm upgrade \
   cilium/cilium
 ```
 
-### Create credentials to interact with the cluster with `kubectl`
+## Create credentials to interact with the cluster with `kubectl`
 
 _This assumes that you have a `tls` directory locally._
 
@@ -111,7 +111,7 @@ kubectl config set-context nuc-admin --user=nuc-admin --cluster=<CLUSTER NAME>
 kubectl config use-context nuc-admin
 ```
 
-### Install ArgoCD
+## Install ArgoCD
 
 1. Install ArgoCD using Helm:
 
@@ -134,7 +134,7 @@ helm upgrade \
   --version 7.7.7 \
   --debug \
   argocd \
-  argo/argo-cd
+  argocd/argo-cd
 ```
 
 4. Get the password set for the built-in `admin` account:
@@ -175,3 +175,16 @@ Upgrade `k3s` using the `system-upgrade-controller`:
 kubectl apply -f ./k3s/server-plan.yaml
 ```
 
+## Expose services over Tailscale using the `tailscale-operator`
+
+_Assumes that the `tailscale-operator` has been installed and everything needed has been configured in your Tailscale account, see [this link](https://tailscale.com/kb/1236/kubernetes-operator) for more info on how to do this!_
+
+On services that shall be exposed over Tailscale add the following to their `Service` object:
+
+```yaml
+...
+  annotations:
+    tailscale.com/expose: "true"
+    tailscale.com/hostname: prometheus
+...
+```
