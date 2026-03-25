@@ -179,12 +179,30 @@ kubectl apply -f ./k3s/server-plan.yaml
 
 _Assumes that the `tailscale-operator` has been installed and everything needed has been configured in your Tailscale account, see [this link](https://tailscale.com/kb/1236/kubernetes-operator) for more info on how to do this!_
 
-On services that shall be exposed over Tailscale add the following to their `Service` object:
+Services are exposed over Tailscale using `Ingress` resources with `ingressClassName: tailscale`. This provides auto-TLS and clean URLs (e.g. `https://prometheus.tail293c1.ts.net`).
 
 ```yaml
-...
-  annotations:
-    tailscale.com/expose: "true"
-    tailscale.com/hostname: prometheus
-...
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus
+  namespace: kube-prometheus-stack
+spec:
+  ingressClassName: tailscale
+  rules:
+    - host: prometheus
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kube-prometheus-stack-prometheus
+                port:
+                  number: 9090
+  tls:
+    - hosts:
+        - prometheus
 ```
+
+Ingress manifests are in `manifests/`.
