@@ -5,6 +5,8 @@
 * One Intel NUC
 * k3s `v1.31.9+k3s1`
 * Cilium as CNI
+* ArgoCD for GitOps
+* Tailscale operator for service exposure and cluster access
 
 ## Packages and tools on the NUC
 
@@ -17,9 +19,9 @@ git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
 
 ## Installing `k3s`
 
-`k3s` and the `config.yaml`:
+`k3s` config at `/etc/rancher/k3s/config.yaml`:
 
-```bash
+```yaml
 cluster-init: true
 write-kubeconfig-mode: "0644"
 flannel-backend: "none"
@@ -34,16 +36,13 @@ disable:
 curl -sfL https://get.k3s.io | sh -s - --config=/etc/rancher/k3s/config.yaml
 ```
 
-## Install `cilium`
+## Install Cilium
 
-`cilium`:
-
-```
+```bash
 helm upgrade \
   --install \
   --create-namespace \
   --namespace kube-system \
-  --debug \
   --reuse-values \
   -f cilium/values.yaml \
   --version 1.16.4 \
@@ -51,78 +50,7 @@ helm upgrade \
   cilium/cilium
 ```
 
-## Create credentials to interact with the cluster with `kubectl`
-
-_This assumes that you have a `tls` directory locally._
-
-1. Run locally:
-
-```bash
-openssl genrsa -out nuc-admin.key 2048
-openssl req -new -key nuc-admin.key -out nuc-admin.csr -subj /O=nuc-admin/CN=nuc-admin
-cat nuc-admin.csr | base64 -w0 | wl-copy -p
-```
-
-2. Run externally (e.g. on the NUC), create the following manifest, i gave it the name `nuc-admin.yaml`. _Note that you can change `expirationSeconds` for longer validity, if you remove that completely you'll get the default 1 year validity from [the built-in signer](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#kubernetes-signers)_:
-
-```bash
-apiVersion: certificates.k8s.io/v1
-kind: CertificateSigningRequest
-metadata:
-  name: nuc-admin
-spec:
-  groups:
-  - nuc-admin
-  request: <COPY-PASTE THE B64 ENCODED CSR HERE>
-  signerName: kubernetes.io/kube-apiserver-client
-  expirationSeconds: 108000
-  usages:
-  - client auth
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: cluster-admin
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-- apiGroup: rbac.authorization.k8s.io
-  kind: Group
-  name: nuc-admin
-```
-
-3. Run externally:
-
-```bash
-kubectl apply -f nuc-admin.yaml
-kubectl certificate approve nuc-admin
-kubectl get csr nuc-admin -o jsonpath='{.status.certificate}' | base64 -d > admin.crt
-```
-
-4. Locally: Create a file called `nuc-admin.crt` locally in the `tls` directory.
-5. Locally, finalize the `kubeconfig`:
-
-```bash
-kubectl config set-credentials nuc-admin --client-key nuc-admin.key --client-certificate nuc-admin.crt --embed-certs=true
-kubectl config set-cluster <CLUSTER NAME> --server https://<NUC IP>:6443 --insecure-skip-tls-verify=true
-kubectl config set-context nuc-admin --user=nuc-admin --cluster=<CLUSTER NAME>
-kubectl config use-context nuc-admin
-```
-
 ## Install ArgoCD
-
-1. Install ArgoCD using Helm:
-
-```bash
-mkdir argo-cd
-helm repo add argo https://argoproj.github.io/argo-helm
-helm show values --version 7.3.2 argo/argo-cd > argo-cd/7.3.2-values.yaml
-```
-
-2. Make relevant changes to the values file.
-3. Install:
 
 ```bash
 helm upgrade \
@@ -132,54 +60,79 @@ helm upgrade \
   --namespace argocd \
   --values argo-cd/values.yaml \
   --version 7.7.7 \
-  --debug \
   argocd \
-  argocd/argo-cd
+  argo-cd/argo-cd
 ```
 
-4. Get the password set for the built-in `admin` account:
+Get the initial `admin` password:
 
 ```bash
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 --decode ; echo
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 --decode; echo
 ```
 
-5. At the moment i'm only port-forwarding to my cluster services, so to be able to initially browse to the ArgoCD UI i did the following:
-
-```bash
-kubectl port-forward svc/argocd-server -n argocd 4443:443
-```
-
-I'll change the way i expose services and applications in the cluster later on.
-
-5. Install the `ApplicationSet` to install all applications:
+Apply the ApplicationSet to deploy all apps:
 
 ```bash
 kubectl apply -f argo-cd/appset.yaml
 ```
 
-### Install the `system-ugprade-controller`
+## Install the Tailscale operator
+
+Follow the [Tailscale Kubernetes operator docs](https://tailscale.com/kb/1236/kubernetes-operator) to set up OAuth credentials and install the operator.
 
 ```bash
-export SUC_VERSION="v0.14.2"
-kubectl apply --force-conflicts --server-side -f https://github.com/rancher/system-upgrade-controller/releases/download/${SUC_VERSION}/crd.yaml
-kubectl apply -f https://github.com/rancher/system-upgrade-controller/releases/download/${SUC_VERSION}/system-upgrade-controller.yaml
+helm upgrade \
+  --install \
+  --create-namespace \
+  --namespace tailscale \
+  tailscale-operator \
+  tailscale/tailscale-operator
 ```
 
-Upgrade `k3s` using the `system-upgrade-controller`:
+## Cluster access via `kubectl`
 
-1. Change the `k3s` version in the `Plan` manifest.
+Cluster access uses the **Tailscale API server proxy** — no client certificates, no expiry.
 
-2. Apply the `Plan` manifest:
+### Prerequisites
+
+* Tailscale installed and authenticated on your local machine
+* Your device has the `tag:k8s-admin` tag assigned in the Tailscale admin console
+
+To assign the tag, add this to your Tailscale ACL policy:
+
+```json
+"tagOwners": {
+  "tag:k8s-admin": ["autogroup:admin"]
+}
+```
+
+Then go to **Machines** → your machine → **Edit tags** → add `tag:k8s-admin`.
+
+The `tag:k8s-admin` group is bound to `cluster-admin` via a `ClusterRoleBinding` managed by ArgoCD.
+
+### Generate kubeconfig
 
 ```bash
-kubectl apply -f ./k3s/server-plan.yaml
+tailscale configure kubeconfig tailscale-operator
+kubectl --context=tailscale-operator get nodes
 ```
 
-## Expose services over Tailscale using the `tailscale-operator`
+The proxy runs on the `tailscale-operator` Tailscale device. Access is gated by Tailscale device identity — only devices tagged `tag:k8s-admin` are granted cluster-admin.
 
-_Assumes that the `tailscale-operator` has been installed and everything needed has been configured in your Tailscale account, see [this link](https://tailscale.com/kb/1236/kubernetes-operator) for more info on how to do this!_
+### Emergency access
 
-Services are exposed over Tailscale using `Ingress` resources with `ingressClassName: tailscale`. This provides auto-TLS and clean URLs (e.g. `https://prometheus.tail293c1.ts.net`).
+If the Tailscale proxy is unavailable, SSH to the NUC and use the local k3s kubeconfig:
+
+```bash
+ssh <user>@nuc01
+sudo kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get nodes
+```
+
+## Expose services over Tailscale
+
+Services are exposed using `Ingress` resources with `ingressClassName: tailscale`, providing auto-TLS and stable `<name>.<tailnet>.ts.net` URLs. Ingress manifests are in `manifests/`.
+
+Example:
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -205,4 +158,18 @@ spec:
         - prometheus
 ```
 
-Ingress manifests are in `manifests/`.
+## Upgrade k3s
+
+Uses `system-upgrade-controller`. Install it:
+
+```bash
+export SUC_VERSION="v0.14.2"
+kubectl apply --force-conflicts --server-side -f https://github.com/rancher/system-upgrade-controller/releases/download/${SUC_VERSION}/crd.yaml
+kubectl apply -f https://github.com/rancher/system-upgrade-controller/releases/download/${SUC_VERSION}/system-upgrade-controller.yaml
+```
+
+To upgrade k3s, update the version in `k3s/server-plan.yaml` and apply:
+
+```bash
+kubectl apply -f ./k3s/server-plan.yaml
+```
